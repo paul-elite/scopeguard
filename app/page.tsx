@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ContractType = "Web design" | "App development" | "UI/UX design" | "Branding" | "SaaS build" | "Maintenance" | "Consulting" | "Retainer";
 
@@ -47,6 +47,8 @@ type Insight = {
   recommendation: string;
   severity: "critical" | "watch";
 };
+
+type SaveState = "Restoring..." | "Saved" | "Saving..." | "Unsaved changes" | "Save failed";
 
 const storageKey = "scopeguard-workspace-v3";
 
@@ -326,23 +328,50 @@ function fieldInsight(insights: Insight[], field: keyof FormState) {
   return insights.find((insight) => insight.field === field);
 }
 
+function missingFieldsForStep(form: FormState, step: Step) {
+  return step.requiredFields.filter((field) => !form[field].trim());
+}
+
+function titleForContract(type: ContractType) {
+  const titles: Record<ContractType, string> = {
+    "Web design": "Website Redesign Agreement",
+    "App development": "Mobile App Development Contract",
+    "UI/UX design": "UI/UX Design Agreement",
+    Branding: "Branding Services Agreement",
+    "SaaS build": "SaaS Build Agreement",
+    Maintenance: "Maintenance Services Agreement",
+    Consulting: "Consulting Agreement",
+    Retainer: "Monthly Retainer Agreement",
+  };
+
+  return titles[type];
+}
+
 function classNames(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-function Icon({ name }: { name: "plus" | "file" | "template" | "help" | "settings" | "export" | "preview" | "save" }) {
+function Icon({ name }: { name: "plus" | "file" | "template" | "export" | "preview" | "save" }) {
   const common = "h-4 w-4";
   if (name === "plus") return <span className={common}>+</span>;
   if (name === "file") return <span className={common}>□</span>;
   if (name === "template") return <span className={common}>▣</span>;
-  if (name === "help") return <span className={common}>?</span>;
-  if (name === "settings") return <span className={common}>⌘</span>;
   if (name === "export") return <span className={common}>↗</span>;
   if (name === "preview") return <span className={common}>◐</span>;
   return <span className={common}>✓</span>;
 }
 
-function Sidebar({ onNew, onSample }: { onNew: () => void; onSample: () => void }) {
+function Sidebar({
+  onNew,
+  onLoadDraft,
+  onSample,
+  hasSavedDraft,
+}: {
+  onNew: () => void;
+  onLoadDraft: () => void;
+  onSample: () => void;
+  hasSavedDraft: boolean;
+}) {
   return (
     <aside className="flex h-full w-full flex-col border-r border-[#ded8cc] bg-[#f5f2eb] px-3 py-3">
       <div className="flex items-center gap-2 px-2 py-2">
@@ -355,22 +384,19 @@ function Sidebar({ onNew, onSample }: { onNew: () => void; onSample: () => void 
 
       <div className="mt-4 space-y-1">
         <SidebarButton icon="plus" label="New Contract" active onClick={onNew} />
-        <SidebarButton icon="file" label="Drafts" />
+        <SidebarButton icon="file" label="Drafts" onClick={onLoadDraft} disabled={!hasSavedDraft} />
         <SidebarButton icon="template" label="Templates" onClick={onSample} />
       </div>
 
       <div className="mt-6">
         <p className="px-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#928c82]">Recently opened</p>
         <div className="mt-2 space-y-1">
-          <RecentItem title="Customer Onboarding Portal" meta="SaaS build" />
-          <RecentItem title="Website Redesign" meta="Web design" muted />
-          <RecentItem title="Monthly Support Retainer" meta="Retainer" muted />
+          <RecentItem title="Customer Onboarding Portal" meta="SaaS build" onClick={onSample} />
+          <RecentItem title={hasSavedDraft ? "Saved local draft" : "No saved local draft"} meta={hasSavedDraft ? "Local browser storage" : "Create or save a draft first"} onClick={hasSavedDraft ? onLoadDraft : undefined} muted={!hasSavedDraft} />
         </div>
       </div>
 
-      <div className="mt-auto space-y-1 border-t border-[#ded8cc] pt-3">
-        <SidebarButton icon="help" label="Help" />
-        <SidebarButton icon="settings" label="Settings" />
+      <div className="mt-auto border-t border-[#ded8cc] pt-3">
         <div className="mt-3 flex items-center gap-2 rounded-xl px-2 py-2">
           <div className="grid size-8 place-items-center rounded-full bg-[#e7dfd1] text-xs font-black text-[#123c35]">JL</div>
           <div className="min-w-0">
@@ -383,14 +409,16 @@ function Sidebar({ onNew, onSample }: { onNew: () => void; onSample: () => void 
   );
 }
 
-function SidebarButton({ icon, label, active, onClick }: { icon: "plus" | "file" | "template" | "help" | "settings"; label: string; active?: boolean; onClick?: () => void }) {
+function SidebarButton({ icon, label, active, disabled, onClick }: { icon: "plus" | "file" | "template"; label: string; active?: boolean; disabled?: boolean; onClick?: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={classNames(
         "flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
         active ? "bg-white text-[#123c35] shadow-[0_1px_0_rgba(25,36,31,0.05)]" : "text-[#5f625c] hover:bg-[#ede8de] hover:text-[#17231f]",
+        disabled && "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-[#5f625c]",
       )}
     >
       <Icon name={icon} />
@@ -399,9 +427,9 @@ function SidebarButton({ icon, label, active, onClick }: { icon: "plus" | "file"
   );
 }
 
-function RecentItem({ title, meta, muted }: { title: string; meta: string; muted?: boolean }) {
+function RecentItem({ title, meta, muted, onClick }: { title: string; meta: string; muted?: boolean; onClick?: () => void }) {
   return (
-    <button type="button" className={classNames("w-full rounded-xl px-2 py-2 text-left transition hover:bg-[#ede8de]", muted && "opacity-60")}>
+    <button type="button" onClick={onClick} disabled={!onClick} className={classNames("w-full rounded-xl px-2 py-2 text-left transition hover:bg-[#ede8de] disabled:cursor-default disabled:hover:bg-transparent", muted && "opacity-60")}>
       <p className="truncate text-xs font-bold text-[#2a3530]">{title}</p>
       <p className="mt-0.5 truncate text-[11px] text-[#817a70]">{meta}</p>
     </button>
@@ -413,17 +441,23 @@ function WorkspaceBar({
   savedState,
   panelMode,
   onTitleChange,
+  onTitleBlur,
   onSave,
   onExport,
   onPreview,
+  isSaving,
+  isExporting,
 }: {
   title: string;
-  savedState: string;
+  savedState: SaveState;
   panelMode: "intel" | "preview";
   onTitleChange: (value: string) => void;
+  onTitleBlur: () => void;
   onSave: () => void;
   onExport: () => void;
   onPreview: () => void;
+  isSaving: boolean;
+  isExporting: boolean;
 }) {
   return (
     <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#ded8cc] bg-[#fbfaf6] px-4">
@@ -432,6 +466,7 @@ function WorkspaceBar({
         <input
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
+          onBlur={onTitleBlur}
           className="min-w-0 max-w-[420px] bg-transparent text-sm font-black text-[#17231f] outline-none"
           aria-label="Contract title"
         />
@@ -439,24 +474,22 @@ function WorkspaceBar({
       </div>
 
       <div className="flex items-center gap-1.5">
-        <UtilityButton label="Save draft" icon="save" onClick={onSave} shortcut="⌘S" />
-        <UtilityButton label="Export" icon="export" onClick={onExport} />
+        <UtilityButton label={isSaving ? "Saving" : "Save draft"} icon="save" onClick={onSave} shortcut="⌘S" disabled={isSaving} />
+        <UtilityButton label={isExporting ? "Exporting" : "Export"} icon="export" onClick={onExport} disabled={isExporting} />
         <UtilityButton label={panelMode === "preview" ? "Intelligence" : "Preview"} icon="preview" onClick={onPreview} />
-        <button type="button" className="grid size-8 place-items-center rounded-lg text-[#68635b] transition hover:bg-[#f0ece3]" aria-label="Theme and settings">
-          <Icon name="settings" />
-        </button>
       </div>
     </header>
   );
 }
 
-function UtilityButton({ label, icon, onClick, shortcut }: { label: string; icon: "save" | "export" | "preview"; onClick: () => void; shortcut?: string }) {
+function UtilityButton({ label, icon, onClick, shortcut, disabled }: { label: string; icon: "save" | "export" | "preview"; onClick: () => void; shortcut?: string; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       title={shortcut ? `${label} (${shortcut})` : label}
-      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#ded8cc] bg-white px-2.5 text-xs font-bold text-[#2b3631] transition hover:border-[#c4bba9] hover:bg-[#f7f4ee]"
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#ded8cc] bg-white px-2.5 text-xs font-bold text-[#2b3631] transition hover:border-[#c4bba9] hover:bg-[#f7f4ee] disabled:cursor-wait disabled:opacity-60"
     >
       <Icon name={icon} />
       <span className="hidden sm:inline">{label}</span>
@@ -484,11 +517,13 @@ function WorkflowTabs({
               type="button"
               disabled={locked}
               onClick={() => onChange(index)}
+              title={locked ? "Complete required fields in the current section first." : step.label}
+              aria-current={activeStep === index ? "step" : undefined}
               className={classNames(
                 "min-w-fit rounded-lg px-3 py-1.5 text-xs font-black transition",
                 activeStep === index && "bg-white text-[#123c35] shadow-[0_1px_0_rgba(25,36,31,0.05)]",
                 activeStep !== index && !locked && "text-[#625e57] hover:bg-[#e9e3d8]",
-                locked && "text-[#b1aa9f]",
+                locked && "cursor-not-allowed text-[#b1aa9f]",
               )}
             >
               {String(index + 1).padStart(2, "0")} {step.short}
@@ -534,6 +569,7 @@ function Field({
   placeholder,
   onChange,
   insight,
+  error,
   helper,
   rows = 4,
   compact,
@@ -543,12 +579,23 @@ function Field({
   placeholder: string;
   onChange: (value: string) => void;
   insight?: Insight;
+  error?: string;
   helper?: string;
   rows?: number;
   compact?: boolean;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!textareaRef.current || compact) return;
+    textareaRef.current.style.height = "auto";
+    textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+  }, [compact, value]);
+
+  const message = error || insight?.recommendation;
+
   return (
-    <label className="block rounded-xl border border-[#e1dace] bg-[#fffdfa] p-3 transition-within focus-within:border-[#123c35] focus-within:ring-2 focus-within:ring-[#dce7df]">
+    <label className={classNames("block rounded-xl border bg-[#fffdfa] p-3 transition-within focus-within:border-[#123c35] focus-within:ring-2 focus-within:ring-[#dce7df]", error ? "border-[#dc8d72]" : "border-[#e1dace]")}>
       <span className="flex items-center justify-between gap-3">
         <span className="text-xs font-black uppercase tracking-[0.08em] text-[#4f5b54]">{label}</span>
         <span className="group relative grid size-5 place-items-center rounded-full border border-[#d9d1c3] text-[11px] font-black text-[#81796f]">
@@ -561,9 +608,9 @@ function Field({
       {compact ? (
         <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="mt-2 w-full bg-transparent text-sm font-medium text-[#17231f] outline-none placeholder:text-[#aaa398]" />
       ) : (
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} rows={rows} className="mt-2 w-full resize-y bg-transparent text-sm leading-6 text-[#17231f] outline-none placeholder:text-[#aaa398]" />
+        <textarea ref={textareaRef} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} rows={rows} className="mt-2 w-full resize-none overflow-hidden bg-transparent text-sm leading-6 text-[#17231f] outline-none placeholder:text-[#aaa398]" />
       )}
-      {insight ? <p className="mt-2 border-t border-[#f0dfd6] pt-2 text-xs font-semibold leading-5 text-[#9b3f24]">{insight.recommendation}</p> : null}
+      {message ? <p className={classNames("mt-2 border-t pt-2 text-xs font-semibold leading-5", error ? "border-[#f0dfd6] text-[#9b3f24]" : "border-[#f0dfd6] text-[#9b3f24]")}>{message}</p> : null}
     </label>
   );
 }
@@ -637,21 +684,19 @@ function IntelligencePanel({
   step,
   insights,
   draft,
-  onRegenerate,
 }: {
   mode: "intel" | "preview";
   step: Step;
   insights: Insight[];
   draft: string;
-  onRegenerate: () => void;
 }) {
   const contextual = insights.filter((insight) => insight.step === step.id);
-  const visibleInsights = step.id === "support" ? insights : contextual;
+  const visibleInsights = contextual;
 
   if (mode === "preview") {
     return (
       <aside className="h-full border-l border-[#ded8cc] bg-[#fbfaf6]">
-        <PanelHeader title="Preview" eyebrow="Generated draft" action="Refresh" onAction={onRegenerate} />
+        <PanelHeader title="Preview" eyebrow="Generated draft" />
         <div className="h-[calc(100dvh-106px)] overflow-auto p-4">
           <pre className="whitespace-pre-wrap rounded-xl border border-[#ded8cc] bg-white p-4 text-xs leading-5 text-[#263530]">{draft}</pre>
         </div>
@@ -713,13 +758,17 @@ function BottomActionBar({
   savedState,
   activeStep,
   maxStep,
+  currentMissing,
+  isSaving,
   onBack,
   onNext,
   onSave,
 }: {
-  savedState: string;
+  savedState: SaveState;
   activeStep: number;
   maxStep: number;
+  currentMissing: number;
+  isSaving: boolean;
   onBack: () => void;
   onNext: () => void;
   onSave: () => void;
@@ -734,11 +783,11 @@ function BottomActionBar({
           <button type="button" onClick={onBack} disabled={activeStep === 0} className="rounded-lg px-3 py-2 text-xs font-bold text-[#5f625c] transition hover:bg-[#f0ece3] disabled:opacity-40">
             Back
           </button>
-          <button type="button" onClick={onSave} className="rounded-lg border border-[#d6d0c4] bg-white px-3 py-2 text-xs font-bold text-[#2b3631] transition hover:border-[#beb4a3]">
-            Save
+          <button type="button" onClick={onSave} disabled={isSaving} className="rounded-lg border border-[#d6d0c4] bg-white px-3 py-2 text-xs font-bold text-[#2b3631] transition hover:border-[#beb4a3] disabled:cursor-wait disabled:opacity-60">
+            {isSaving ? "Saving" : "Save"}
           </button>
-          <button type="button" onClick={onNext} disabled={activeStep >= maxStep} className="rounded-lg bg-[#123c35] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0d312b] disabled:bg-[#aab4ae]">
-            Next section
+          <button type="button" onClick={onNext} disabled={activeStep >= maxStep} title={currentMissing ? "Complete required fields before continuing." : "Go to next section"} className="rounded-lg bg-[#123c35] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0d312b] disabled:cursor-not-allowed disabled:bg-[#aab4ae]">
+            {currentMissing ? `Complete ${currentMissing}` : "Next section"}
           </button>
         </div>
       </div>
@@ -752,40 +801,70 @@ export default function ScopeGuard() {
   const [activeStep, setActiveStep] = useState(0);
   const [panelMode, setPanelMode] = useState<"intel" | "preview">("intel");
   const [paymentMode, setPaymentMode] = useState("fixed");
-  const [savedState, setSavedState] = useState("Saved");
-  const [draft, setDraft] = useState(() => generateContract("Web design", emptyForm));
+  const [savedState, setSavedState] = useState<SaveState>("Restoring...");
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [validatedSteps, setValidatedSteps] = useState<StepId[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const didRestore = useRef(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const scrollPositions = useRef<Partial<Record<StepId, number>>>({});
 
   const currentStep = steps[activeStep];
   const insights = useMemo(() => getInsights(form), [form]);
   const generatedDraft = useMemo(() => generateContract(contractType, form), [contractType, form]);
-  const basicsComplete = Boolean(form.freelancerName.trim() && form.clientName.trim() && form.projectTitle.trim());
-  const maxStep = basicsComplete ? steps.length - 1 : Math.min(1, activeStep + 1);
+  const firstIncompleteStep = steps.findIndex((step) => missingFieldsForStep(form, step).length > 0);
+  const maxStep = firstIncompleteStep === -1 ? steps.length - 1 : Math.max(firstIncompleteStep, activeStep);
+  const currentMissingFields = missingFieldsForStep(form, currentStep);
+  const shouldShowValidation = validatedSteps.includes(currentStep.id);
+  const isSaving = savedState === "Saving...";
+
+  const restoreSavedDraft = () => {
+    const saved = window.localStorage.getItem(storageKey);
+    setHasSavedDraft(Boolean(saved));
+    if (!saved) return false;
+
+    try {
+      const parsed = JSON.parse(saved) as Partial<{
+        contractType: ContractType;
+        form: Partial<FormState>;
+        activeStep: number;
+        paymentMode: string;
+      }>;
+      if (parsed.contractType) setContractType(parsed.contractType);
+      if (parsed.form) setForm({ ...emptyForm, ...parsed.form });
+      if (typeof parsed.activeStep === "number") setActiveStep(Math.min(Math.max(parsed.activeStep, 0), steps.length - 1));
+      if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
+      setSavedState("Saved");
+      return true;
+    } catch {
+      window.localStorage.removeItem(storageKey);
+      setHasSavedDraft(false);
+      setSavedState("Save failed");
+      return false;
+    }
+  };
 
   useEffect(() => {
     window.setTimeout(() => {
-      const saved = window.localStorage.getItem(storageKey);
-      if (!saved) return;
-      try {
-        const parsed = JSON.parse(saved) as Partial<{
-          contractType: ContractType;
-          form: Partial<FormState>;
-          activeStep: number;
-          paymentMode: string;
-        }>;
-        if (parsed.contractType) setContractType(parsed.contractType);
-        if (parsed.form) setForm({ ...emptyForm, ...parsed.form });
-        if (typeof parsed.activeStep === "number") setActiveStep(Math.min(Math.max(parsed.activeStep, 0), steps.length - 1));
-        if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
-      } catch {
-        window.localStorage.removeItem(storageKey);
-      }
+      restoreSavedDraft();
+      didRestore.current = true;
+      setSavedState((state) => (state === "Restoring..." ? "Saved" : state));
     }, 0);
   }, []);
 
   useEffect(() => {
+    if (!didRestore.current) return;
     const timeout = window.setTimeout(() => {
-      window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, activeStep, paymentMode }));
-      setSavedState("Autosaved");
+      setSavedState("Saving...");
+      window.setTimeout(() => {
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, activeStep, paymentMode }));
+          setHasSavedDraft(true);
+          setSavedState("Saved");
+        } catch {
+          setSavedState("Save failed");
+        }
+      }, 160);
     }, 700);
     return () => window.clearTimeout(timeout);
   }, [contractType, form, activeStep, paymentMode]);
@@ -807,16 +886,28 @@ export default function ScopeGuard() {
   };
 
   const saveDraft = () => {
-    window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, activeStep, paymentMode }));
-    setSavedState("Saved");
+    setSavedState("Saving...");
+    window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, activeStep, paymentMode }));
+        setHasSavedDraft(true);
+        setSavedState("Saved");
+      } catch {
+        setSavedState("Save failed");
+      }
+    }, 120);
   };
 
   const resetContract = () => {
+    if (savedState === "Unsaved changes" && !window.confirm("Start a new contract and discard unsaved edits?")) {
+      return;
+    }
     setSavedState("Unsaved changes");
     setContractType("Web design");
-    setForm(emptyForm);
+    setForm({ ...emptyForm, projectTitle: titleForContract("Web design") });
     setActiveStep(0);
     setPanelMode("intel");
+    setValidatedSteps([]);
   };
 
   const loadSample = () => {
@@ -827,15 +918,32 @@ export default function ScopeGuard() {
   };
 
   const changeStep = (step: number) => {
+    if (contentRef.current) {
+      scrollPositions.current[currentStep.id] = contentRef.current.scrollTop;
+    }
+
+    if (step > activeStep && currentMissingFields.length > 0) {
+      setValidatedSteps((current) => Array.from(new Set([...current, currentStep.id])));
+      return;
+    }
+
     const next = Math.min(Math.max(step, 0), maxStep);
-    setSavedState("Unsaved changes");
     setActiveStep(next);
     setPanelMode("intel");
+    window.setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTop = scrollPositions.current[steps[next].id] || 0;
+      }
+    }, 0);
   };
 
   const updateContractType = (value: ContractType) => {
     setSavedState("Unsaved changes");
     setContractType(value);
+    setForm((current) => ({
+      ...current,
+      projectTitle: !current.projectTitle.trim() || current.projectTitle === "Untitled freelance agreement" ? titleForContract(value) : current.projectTitle,
+    }));
   };
 
   const updatePaymentMode = (value: string) => {
@@ -844,33 +952,64 @@ export default function ScopeGuard() {
   };
 
   const showPreview = () => {
-    setDraft(generatedDraft);
     setPanelMode((mode) => (mode === "preview" ? "intel" : "preview"));
   };
 
   const exportDraft = () => {
-    setDraft(generatedDraft);
-    window.setTimeout(() => window.print(), 0);
+    setIsExporting(true);
+    window.setTimeout(() => {
+      try {
+        window.print();
+      } finally {
+        window.setTimeout(() => setIsExporting(false), 400);
+      }
+    }, 80);
   };
+
+  const normalizeTitle = () => {
+    if (!form.projectTitle.trim()) {
+      updateField("projectTitle", titleForContract(contractType));
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        saveDraft();
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        changeStep(activeStep + 1);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   return (
     <main className="h-dvh overflow-hidden bg-[#f4f0e8] text-[#17231f]">
       <div className="grid h-full grid-cols-1 md:grid-cols-[236px_minmax(0,1fr)]">
-        <Sidebar onNew={resetContract} onSample={loadSample} />
+        <Sidebar onNew={resetContract} onLoadDraft={restoreSavedDraft} onSample={loadSample} hasSavedDraft={hasSavedDraft} />
         <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
           <WorkspaceBar
             title={form.projectTitle}
             savedState={savedState}
             panelMode={panelMode}
             onTitleChange={(value) => updateField("projectTitle", value)}
+            onTitleBlur={normalizeTitle}
             onSave={saveDraft}
             onExport={exportDraft}
             onPreview={showPreview}
+            isSaving={isSaving}
+            isExporting={isExporting}
           />
           <WorkflowTabs activeStep={activeStep} maxStep={maxStep} onChange={changeStep} />
 
           <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="min-h-0 overflow-auto bg-[#fbfaf6]">
+            <div ref={contentRef} className="min-h-0 overflow-auto bg-[#fbfaf6]">
               <div className="px-4 py-5 md:px-8 md:py-7">
                 {currentStep.id === "type" ? (
                   <SectionFrame step={currentStep}>
@@ -881,17 +1020,17 @@ export default function ScopeGuard() {
                 {currentStep.id === "parties" ? (
                   <SectionFrame step={currentStep}>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <Field compact label="Freelancer name" value={form.freelancerName} placeholder="Your legal or studio name" onChange={(value) => updateField("freelancerName", value)} />
-                      <Field compact label="Client name" value={form.clientName} placeholder="Client company or individual" onChange={(value) => updateField("clientName", value)} />
+                      <Field compact label="Freelancer name" value={form.freelancerName} placeholder="Your legal or studio name" error={shouldShowValidation && !form.freelancerName.trim() ? "Freelancer name is required." : undefined} onChange={(value) => updateField("freelancerName", value)} />
+                      <Field compact label="Client name" value={form.clientName} placeholder="Client company or individual" error={shouldShowValidation && !form.clientName.trim() ? "Client name is required." : undefined} onChange={(value) => updateField("clientName", value)} />
                     </div>
-                    <Field compact label="Contract title" value={form.projectTitle} placeholder="Customer onboarding portal" onChange={(value) => updateField("projectTitle", value)} />
+                    <Field compact label="Contract title" value={form.projectTitle} placeholder="Customer onboarding portal" error={shouldShowValidation && !form.projectTitle.trim() ? "Contract title is required." : undefined} onChange={(value) => updateField("projectTitle", value)} />
                   </SectionFrame>
                 ) : null}
 
                 {currentStep.id === "scope" ? (
                   <SectionFrame step={currentStep} onDefault={() => applyDefaults(["scopeOfWork", "deliverables", "exclusions"])}>
-                    <Field label="Scope of work" value={form.scopeOfWork} placeholder="Describe the work included in the engagement..." helper="Be concrete about features, screens, systems, and responsibilities." onChange={(value) => updateField("scopeOfWork", value)} />
-                    <Field label="Deliverables" value={form.deliverables} placeholder="What should the client receive?" onChange={(value) => updateField("deliverables", value)} />
+                    <Field label="Scope of work" value={form.scopeOfWork} placeholder="Describe the work included in the engagement..." helper="Be concrete about features, screens, systems, and responsibilities." error={shouldShowValidation && !form.scopeOfWork.trim() ? "Scope of work is required." : undefined} onChange={(value) => updateField("scopeOfWork", value)} />
+                    <Field label="Deliverables" value={form.deliverables} placeholder="What should the client receive?" error={shouldShowValidation && !form.deliverables.trim() ? "Deliverables are required." : undefined} onChange={(value) => updateField("deliverables", value)} />
                     <CollapsibleSection title="Out-of-scope boundaries" description="Use this to reduce scope creep before it starts.">
                       <Field label="Exclusions" value={form.exclusions} placeholder="List work that is not included unless approved later..." insight={fieldInsight(insights, "exclusions")} rows={3} onChange={(value) => updateField("exclusions", value)} />
                     </CollapsibleSection>
@@ -909,9 +1048,9 @@ export default function ScopeGuard() {
                         { label: "Retainer", value: "retainer" },
                       ]}
                     />
-                    <Field label="Payment terms" value={form.paymentTerms} placeholder="Total fee, invoice schedule, due dates..." onChange={(value) => updateField("paymentTerms", value)} />
+                    <Field label="Payment terms" value={form.paymentTerms} placeholder="Total fee, invoice schedule, due dates..." error={shouldShowValidation && !form.paymentTerms.trim() ? "Payment terms are required." : undefined} onChange={(value) => updateField("paymentTerms", value)} />
                     <div className="grid gap-3 md:grid-cols-2">
-                      <Field compact label="Deposit" value={form.depositAmount} placeholder="40% due before kickoff" insight={fieldInsight(insights, "depositAmount")} onChange={(value) => updateField("depositAmount", value)} />
+                      <Field compact label="Deposit" value={form.depositAmount} placeholder="40% due before kickoff" error={shouldShowValidation && !form.depositAmount.trim() ? "Deposit amount is required." : undefined} insight={fieldInsight(insights, "depositAmount")} onChange={(value) => updateField("depositAmount", value)} />
                       <Field compact label="Late payment" value={form.latePaymentTerms} placeholder="Overdue invoices may accrue..." insight={fieldInsight(insights, "latePaymentTerms")} onChange={(value) => updateField("latePaymentTerms", value)} />
                     </div>
                   </SectionFrame>
@@ -919,22 +1058,22 @@ export default function ScopeGuard() {
 
                 {currentStep.id === "timeline" ? (
                   <SectionFrame step={currentStep} onDefault={() => applyDefaults(["timeline", "milestones", "clientResponsibilities"])}>
-                    <Field label="Timeline" value={form.timeline} placeholder="How long will the work take, and what starts the clock?" onChange={(value) => updateField("timeline", value)} />
-                    <Field label="Milestones" value={form.milestones} placeholder="Discovery, design, build, QA, handoff..." onChange={(value) => updateField("milestones", value)} />
-                    <Field label="Client responsibilities" value={form.clientResponsibilities} placeholder="Feedback deadline, access, approvals, decision maker..." insight={fieldInsight(insights, "clientResponsibilities")} onChange={(value) => updateField("clientResponsibilities", value)} />
+                    <Field label="Timeline" value={form.timeline} placeholder="How long will the work take, and what starts the clock?" error={shouldShowValidation && !form.timeline.trim() ? "Timeline is required." : undefined} onChange={(value) => updateField("timeline", value)} />
+                    <Field label="Milestones" value={form.milestones} placeholder="Discovery, design, build, QA, handoff..." error={shouldShowValidation && !form.milestones.trim() ? "Milestones are required." : undefined} onChange={(value) => updateField("milestones", value)} />
+                    <Field label="Client responsibilities" value={form.clientResponsibilities} placeholder="Feedback deadline, access, approvals, decision maker..." error={shouldShowValidation && !form.clientResponsibilities.trim() ? "Client responsibilities are required." : undefined} insight={fieldInsight(insights, "clientResponsibilities")} onChange={(value) => updateField("clientResponsibilities", value)} />
                   </SectionFrame>
                 ) : null}
 
                 {currentStep.id === "ownership" ? (
                   <SectionFrame step={currentStep} onDefault={() => applyDefaults(["ipOwnershipTerms", "sourceFilesOwnership"])}>
-                    <Field label="IP ownership" value={form.ipOwnershipTerms} placeholder="Who owns final work and when does ownership transfer?" insight={fieldInsight(insights, "ipOwnershipTerms")} onChange={(value) => updateField("ipOwnershipTerms", value)} />
-                    <Field label="Source files and code" value={form.sourceFilesOwnership} placeholder="Repos, design files, third-party libraries, build files..." onChange={(value) => updateField("sourceFilesOwnership", value)} />
+                    <Field label="IP ownership" value={form.ipOwnershipTerms} placeholder="Who owns final work and when does ownership transfer?" error={shouldShowValidation && !form.ipOwnershipTerms.trim() ? "IP ownership terms are required." : undefined} insight={fieldInsight(insights, "ipOwnershipTerms")} onChange={(value) => updateField("ipOwnershipTerms", value)} />
+                    <Field label="Source files and code" value={form.sourceFilesOwnership} placeholder="Repos, design files, third-party libraries, build files..." error={shouldShowValidation && !form.sourceFilesOwnership.trim() ? "Source files/code terms are required." : undefined} onChange={(value) => updateField("sourceFilesOwnership", value)} />
                   </SectionFrame>
                 ) : null}
 
                 {currentStep.id === "revisions" ? (
                   <SectionFrame step={currentStep} onDefault={() => applyDefaults(["revisionLimits", "changeRequestTerms"])}>
-                    <Field label="Revision limits" value={form.revisionLimits} placeholder="Two revision rounds are included..." insight={fieldInsight(insights, "revisionLimits")} onChange={(value) => updateField("revisionLimits", value)} />
+                    <Field label="Revision limits" value={form.revisionLimits} placeholder="Two revision rounds are included..." error={shouldShowValidation && !form.revisionLimits.trim() ? "Revision limits are required." : undefined} insight={fieldInsight(insights, "revisionLimits")} onChange={(value) => updateField("revisionLimits", value)} />
                     <CollapsibleSection title="Change request process" description="Define how extra work gets approved.">
                       <Field label="Change request terms" value={form.changeRequestTerms} placeholder="Additional requests require written approval..." rows={3} onChange={(value) => updateField("changeRequestTerms", value)} />
                     </CollapsibleSection>
@@ -943,13 +1082,13 @@ export default function ScopeGuard() {
 
                 {currentStep.id === "cancellation" ? (
                   <SectionFrame step={currentStep} onDefault={() => applyDefaults(["cancellationTerms"])}>
-                    <Field label="Cancellation and termination" value={form.cancellationTerms} placeholder="Notice period, completed work payment, non-cancellable expenses..." insight={fieldInsight(insights, "cancellationTerms")} onChange={(value) => updateField("cancellationTerms", value)} />
+                    <Field label="Cancellation and termination" value={form.cancellationTerms} placeholder="Notice period, completed work payment, non-cancellable expenses..." error={shouldShowValidation && !form.cancellationTerms.trim() ? "Cancellation terms are required." : undefined} insight={fieldInsight(insights, "cancellationTerms")} onChange={(value) => updateField("cancellationTerms", value)} />
                   </SectionFrame>
                 ) : null}
 
                 {currentStep.id === "support" ? (
                   <SectionFrame step={currentStep} onDefault={() => applyDefaults(["supportTerms", "confidentialityTerms", "governingLaw"])}>
-                    <Field label="Support and maintenance" value={form.supportTerms} placeholder="What support is included, for how long, and what is extra?" insight={fieldInsight(insights, "supportTerms")} onChange={(value) => updateField("supportTerms", value)} />
+                    <Field label="Support and maintenance" value={form.supportTerms} placeholder="What support is included, for how long, and what is extra?" error={shouldShowValidation && !form.supportTerms.trim() ? "Support terms are required." : undefined} insight={fieldInsight(insights, "supportTerms")} onChange={(value) => updateField("supportTerms", value)} />
                     <CollapsibleSection title="Legal placeholders" description="Keep these visible but out of the main drafting path.">
                       <div className="space-y-3">
                         <Field label="Confidentiality" value={form.confidentialityTerms} placeholder="How both sides handle private information..." rows={3} onChange={(value) => updateField("confidentialityTerms", value)} />
@@ -964,18 +1103,20 @@ export default function ScopeGuard() {
                 savedState={savedState}
                 activeStep={activeStep}
                 maxStep={maxStep}
+                currentMissing={currentMissingFields.length}
+                isSaving={isSaving}
                 onBack={() => changeStep(activeStep - 1)}
                 onNext={() => changeStep(activeStep + 1)}
                 onSave={saveDraft}
               />
             </div>
 
-            <IntelligencePanel mode={panelMode} step={currentStep} insights={insights} draft={draft || generatedDraft} onRegenerate={() => setDraft(generatedDraft)} />
+            <IntelligencePanel mode={panelMode} step={currentStep} insights={insights} draft={generatedDraft} />
           </div>
         </div>
       </div>
 
-      <textarea className="print-contract hidden" readOnly value={draft || generatedDraft} />
+      <textarea className="print-contract fixed -left-[9999px] top-0 h-px w-px opacity-0" readOnly value={generatedDraft} />
     </main>
   );
 }
