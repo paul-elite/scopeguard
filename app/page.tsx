@@ -9,6 +9,7 @@ type FormState = {
   clientName: string;
   projectTitle: string;
   scopeOfWork: string;
+  exclusions: string;
   deliverables: string;
   timeline: string;
   milestones: string;
@@ -16,6 +17,7 @@ type FormState = {
   depositAmount: string;
   latePaymentTerms: string;
   revisionLimits: string;
+  changeRequestTerms: string;
   ipOwnershipTerms: string;
   sourceFilesOwnership: string;
   clientResponsibilities: string;
@@ -25,127 +27,121 @@ type FormState = {
   governingLaw: string;
 };
 
-type StepId = "type" | "people" | "scope" | "payment" | "timeline" | "ownership" | "revisions" | "cancellation" | "support" | "review";
-
-type Risk = {
-  id: string;
-  step: StepId;
-  field?: keyof FormState;
-  title: string;
-  detail: string;
-  severity: "High" | "Medium";
-};
+type StepId = "type" | "parties" | "scope" | "payment" | "timeline" | "ownership" | "revisions" | "cancellation" | "support";
 
 type Step = {
   id: StepId;
+  short: string;
   label: string;
-  eyebrow: string;
   title: string;
-  prompt: string;
+  description: string;
   requiredFields: Array<keyof FormState>;
 };
 
-const storageKey = "scopeguard-draft-v2";
+type Insight = {
+  id: string;
+  step: StepId;
+  field?: keyof FormState;
+  label: string;
+  detail: string;
+  recommendation: string;
+  severity: "critical" | "watch";
+};
+
+const storageKey = "scopeguard-workspace-v3";
 
 const contractTypes: Array<{ name: ContractType; summary: string }> = [
   { name: "Web design", summary: "Marketing sites, redesigns, landing pages" },
   { name: "App development", summary: "MVPs, mobile apps, product builds" },
-  { name: "UI/UX design", summary: "Flows, prototypes, research, product design" },
-  { name: "Branding", summary: "Identity systems, guidelines, launch kits" },
-  { name: "SaaS build", summary: "Subscription products and internal tools" },
-  { name: "Maintenance", summary: "Updates, fixes, monitoring, retainers" },
-  { name: "Consulting", summary: "Strategy, audits, advisory, workshops" },
-  { name: "Retainer", summary: "Ongoing monthly support and delivery" },
+  { name: "UI/UX design", summary: "Research, flows, prototypes, interface design" },
+  { name: "Branding", summary: "Identity systems, launch kits, guidelines" },
+  { name: "SaaS build", summary: "Subscription products and internal platforms" },
+  { name: "Maintenance", summary: "Updates, fixes, monitoring, support" },
+  { name: "Consulting", summary: "Strategy, audits, workshops, advisory" },
+  { name: "Retainer", summary: "Ongoing monthly delivery and support" },
 ];
 
 const steps: Step[] = [
   {
     id: "type",
+    short: "Type",
     label: "Contract Type",
-    eyebrow: "Start simple",
-    title: "What kind of work is this?",
-    prompt: "Choose the closest fit. ScopeGuard will keep the language focused on freelance tech work.",
+    title: "Classify the engagement",
+    description: "Pick the closest freelance tech contract type. This keeps the draft language focused.",
     requiredFields: [],
   },
   {
-    id: "people",
-    label: "People",
-    eyebrow: "Parties",
-    title: "Who is this agreement between?",
-    prompt: "Name the freelancer, the client, and the project so the draft has a clean foundation.",
+    id: "parties",
+    short: "Parties",
+    label: "Parties",
+    title: "Identify the parties",
+    description: "Set the people, companies, and project name used throughout the agreement.",
     requiredFields: ["freelancerName", "clientName", "projectTitle"],
   },
   {
     id: "scope",
+    short: "Scope",
     label: "Scope",
-    eyebrow: "Project shape",
-    title: "Let’s define the project.",
-    prompt: "Plain English scope beats legal fog. Say what is included and what the client should receive.",
+    title: "Define the work",
+    description: "Describe what is included, what is delivered, and what is intentionally excluded.",
     requiredFields: ["scopeOfWork", "deliverables"],
   },
   {
     id: "payment",
+    short: "Payment",
     label: "Payment",
-    eyebrow: "Money",
-    title: "Protect your payment terms.",
-    prompt: "Add the fee structure, deposit, invoice timing, and late payment terms.",
+    title: "Protect payment terms",
+    description: "Clarify fee structure, deposit, invoice timing, and late payment language.",
     requiredFields: ["paymentTerms", "depositAmount"],
   },
   {
     id: "timeline",
+    short: "Timeline",
     label: "Timeline",
-    eyebrow: "Schedule",
-    title: "Set the pace for delivery.",
-    prompt: "Clarify milestones and feedback timing so the project does not drift silently.",
+    title: "Set delivery rhythm",
+    description: "Define milestones, expected timing, approvals, and client feedback responsibilities.",
     requiredFields: ["timeline", "milestones", "clientResponsibilities"],
   },
   {
     id: "ownership",
+    short: "Ownership",
     label: "Ownership",
-    eyebrow: "Rights",
-    title: "Clarify files, code, and IP.",
-    prompt: "Say what transfers, when it transfers, and what you keep as reusable know-how.",
+    title: "Clarify IP and source files",
+    description: "Say what transfers, when it transfers, and what remains reusable by the freelancer.",
     requiredFields: ["ipOwnershipTerms", "sourceFilesOwnership"],
   },
   {
     id: "revisions",
+    short: "Revisions",
     label: "Revisions",
-    eyebrow: "Change control",
-    title: "Keep revisions bounded.",
-    prompt: "Define included rounds and how new requests become change requests.",
+    title: "Bound revisions and changes",
+    description: "Set revision limits and the process for additional requests.",
     requiredFields: ["revisionLimits"],
   },
   {
     id: "cancellation",
+    short: "Cancel",
     label: "Cancellation",
-    eyebrow: "Offboarding",
-    title: "Make the exit calm.",
-    prompt: "Set notice, payment for completed work, and what happens if either side ends the project.",
+    title: "Make termination clear",
+    description: "Define notice, payment for completed work, expenses, and offboarding.",
     requiredFields: ["cancellationTerms"],
   },
   {
     id: "support",
+    short: "Support",
     label: "Support",
-    eyebrow: "After launch",
-    title: "Draw the support boundary.",
-    prompt: "Explain what post-launch help is included, what is extra, and how confidentiality works.",
+    title: "Set post-launch boundaries",
+    description: "Explain included support, exclusions, confidentiality, and governing law placeholder.",
     requiredFields: ["supportTerms"],
-  },
-  {
-    id: "review",
-    label: "Review",
-    eyebrow: "Ready check",
-    title: "Review before you send.",
-    prompt: "Scan missing fields, risks, and the generated clauses before exporting.",
-    requiredFields: [],
   },
 ];
 
 const emptyForm: FormState = {
   freelancerName: "",
   clientName: "",
-  projectTitle: "",
+  projectTitle: "Untitled freelance agreement",
   scopeOfWork: "",
+  exclusions: "",
   deliverables: "",
   timeline: "",
   milestones: "",
@@ -153,27 +149,30 @@ const emptyForm: FormState = {
   depositAmount: "",
   latePaymentTerms: "",
   revisionLimits: "",
+  changeRequestTerms: "",
   ipOwnershipTerms: "",
   sourceFilesOwnership: "",
   clientResponsibilities: "",
   cancellationTerms: "",
   confidentialityTerms: "",
   supportTerms: "",
-  governingLaw: "",
+  governingLaw: "[Governing law / jurisdiction placeholder]",
 };
 
 const smartDefaults: FormState = {
   freelancerName: "",
   clientName: "",
-  projectTitle: "",
+  projectTitle: "Untitled freelance agreement",
   scopeOfWork: "Freelancer will provide the services described in the approved project brief. Work not listed in this agreement is outside the current scope unless approved in writing.",
+  exclusions: "Unless added by written change request, the scope excludes new features, copywriting, third-party subscription fees, platform policy changes, and work outside the approved deliverables.",
   deliverables: "Final approved deliverables, relevant working files, handoff documentation, and one recorded walkthrough.",
-  timeline: "The project timeline begins after deposit receipt and Client provides required access, assets, content, and approvals.",
+  timeline: "The project timeline begins after deposit receipt and after Client provides required access, assets, content, and approvals.",
   milestones: "Discovery and requirements, draft direction, production work, review and revisions, final handoff.",
   paymentTerms: "Invoices are due within 10 days of issue. Freelancer may pause work if invoices are overdue or required approvals are delayed.",
   depositAmount: "40% due before kickoff",
   latePaymentTerms: "Late payments may accrue 1.5% per month where permitted by law.",
   revisionLimits: "Two revision rounds are included. Requests beyond included rounds are treated as change requests.",
+  changeRequestTerms: "Change requests must be approved in writing and may require additional fees and timeline adjustments.",
   ipOwnershipTerms: "Client receives ownership of final approved work after full payment. Freelancer retains pre-existing tools, templates, methods, and know-how.",
   sourceFilesOwnership: "Final source files and code transfer after full payment. Third-party libraries remain governed by their own licenses.",
   clientResponsibilities: "Client will provide feedback within three business days, required access, project materials, and one decision maker for approvals.",
@@ -188,6 +187,7 @@ const sampleForm: FormState = {
   clientName: "Northstar Labs",
   projectTitle: "Customer Onboarding Portal",
   scopeOfWork: "Design and build a responsive onboarding portal with account setup, guided checklists, admin content controls, and analytics events for key activation steps.",
+  exclusions: "The project excludes net-new product strategy, paid acquisition setup, third-party subscription costs, and post-launch feature requests unless approved as change requests.",
   deliverables: "UX flows, high-fidelity UI designs, production Next.js implementation, CMS-backed checklist content, QA notes, deployment handoff, and one recorded walkthrough.",
   timeline: "Eight weeks from kickoff, beginning after deposit receipt and access to required brand/product materials.",
   milestones: "Week 1 discovery and requirements. Week 2 UX flows. Weeks 3-4 visual design. Weeks 5-7 development. Week 8 QA, revisions, and handoff.",
@@ -195,6 +195,7 @@ const sampleForm: FormState = {
   depositAmount: "40% of project fee due before kickoff",
   latePaymentTerms: "Late payments accrue 1.5% per month where permitted by law.",
   revisionLimits: "Two revision rounds are included for design and one QA correction pass is included before handoff.",
+  changeRequestTerms: "Additional requests, new features, or changes to approved work require written approval and may affect fee and timeline.",
   ipOwnershipTerms: "Client receives ownership of final approved work after full payment. Freelancer retains ownership of pre-existing tools, templates, know-how, and reusable methods.",
   sourceFilesOwnership: "Source code and final design files transfer to Client after full payment. Third-party libraries remain governed by their own licenses.",
   clientResponsibilities: "Client will provide timely feedback within three business days, access to systems, brand assets, product copy, and a single decision maker for approvals.",
@@ -204,16 +205,12 @@ const sampleForm: FormState = {
   governingLaw: "[Governing law / jurisdiction placeholder]",
 };
 
-const requiredFields: Array<keyof FormState> = steps.flatMap((step) => step.requiredFields);
-
 function generateContract(type: ContractType, form: FormState) {
   const value = (text: string, fallback: string) => text.trim() || `[${fallback}]`;
 
   return `SCOPEGUARD CONTRACT DRAFT
 
-Draft better contracts faster. Review with a lawyer when needed.
-
-Important notice: This document is an editable contract draft for discussion and planning. It is not legal advice, does not create an attorney-client relationship, and should be reviewed by a qualified legal professional when needed.
+Draft only. Not legal advice. Review with a qualified legal professional when needed.
 
 1. Parties
 This ${type.toLowerCase()} agreement is between ${value(form.freelancerName, "Freelancer name")} ("Freelancer") and ${value(form.clientName, "Client name")} ("Client").
@@ -224,7 +221,8 @@ The project is titled "${value(form.projectTitle, "Project title")}". This agree
 3. Scope of Work
 ${value(form.scopeOfWork, "Scope of work")}
 
-Work not listed here is outside the current scope unless both parties approve it in writing through a change request.
+Out of scope:
+${value(form.exclusions, "Out-of-scope items")}
 
 4. Deliverables
 ${value(form.deliverables, "Deliverables")}
@@ -235,6 +233,9 @@ ${value(form.timeline, "Timeline")}
 
 Milestones:
 ${value(form.milestones, "Milestones")}
+
+Client responsibilities:
+${value(form.clientResponsibilities, "Client responsibilities")}
 
 6. Fees and Payment Terms
 ${value(form.paymentTerms, "Payment terms")}
@@ -248,7 +249,8 @@ ${value(form.latePaymentTerms, "Late payment terms")}
 7. Revisions and Change Requests
 ${value(form.revisionLimits, "Revision limits")}
 
-Requests beyond included revision limits, changes to approved work, or new deliverables may require additional fees and timeline changes.
+Change requests:
+${value(form.changeRequestTerms, "Change request terms")}
 
 8. Intellectual Property and Ownership
 ${value(form.ipOwnershipTerms, "IP ownership terms")}
@@ -258,25 +260,22 @@ ${value(form.sourceFilesOwnership, "Source files/code ownership")}
 
 Unless stated otherwise, ownership transfers only after Freelancer receives full payment.
 
-9. Client Responsibilities
-${value(form.clientResponsibilities, "Client responsibilities")}
-
-10. Confidentiality
+9. Confidentiality
 ${value(form.confidentialityTerms, "Confidentiality terms")}
 
-11. Support and Maintenance
+10. Support and Maintenance
 ${value(form.supportTerms, "Support/maintenance terms")}
 
-12. Cancellation and Termination
+11. Cancellation and Termination
 ${value(form.cancellationTerms, "Cancellation/termination terms")}
 
-13. Limitation of Liability
+12. Limitation of Liability
 To the maximum extent allowed by applicable law, each party's liability should be limited to reasonable, direct damages. Neither party should be responsible for indirect, incidental, special, consequential, or punitive damages, including lost profits. Review this section with a qualified legal professional for the relevant jurisdiction.
 
-14. Governing Law
+13. Governing Law
 This agreement is governed by the laws of ${value(form.governingLaw, "Governing law / jurisdiction placeholder")}.
 
-15. Signatures
+14. Signatures
 Freelancer: ${value(form.freelancerName, "Freelancer name")}
 Signature: ______________________________
 Date: __________________
@@ -287,139 +286,212 @@ Date: __________________
 `;
 }
 
-function getRisks(form: FormState): Risk[] {
-  const risks: Risk[] = [];
+function getInsights(form: FormState): Insight[] {
+  const insights: Insight[] = [];
   const payment = `${form.paymentTerms} ${form.latePaymentTerms}`.toLowerCase();
-  const revisions = form.revisionLimits.toLowerCase();
-  const responsibilities = form.clientResponsibilities.toLowerCase();
+  const revisions = `${form.revisionLimits} ${form.changeRequestTerms}`.toLowerCase();
   const support = form.supportTerms.toLowerCase();
+  const scope = `${form.scopeOfWork} ${form.exclusions}`.toLowerCase();
+  const responsibilities = form.clientResponsibilities.toLowerCase();
 
   if (!form.depositAmount.trim() && !payment.includes("deposit")) {
-    risks.push({ id: "deposit", step: "payment", field: "depositAmount", title: "No deposit added", detail: "Add upfront payment before kickoff to reduce non-payment risk.", severity: "High" });
-  }
-  if (!form.revisionLimits.trim()) {
-    risks.push({ id: "revision-limit", step: "revisions", field: "revisionLimits", title: "No revision limit", detail: "State how many revision rounds are included before extra fees apply.", severity: "High" });
-  }
-  if (revisions.includes("unlimited")) {
-    risks.push({ id: "unlimited-revisions", step: "revisions", field: "revisionLimits", title: "Unlimited revisions detected", detail: "Unlimited revisions can make a fixed-fee project open-ended.", severity: "High" });
+    insights.push({ id: "deposit", step: "payment", field: "depositAmount", label: "Weak payment structure", detail: "No deposit is defined.", recommendation: "Add an upfront payment before kickoff.", severity: "critical" });
   }
   if (!payment.includes("late") && !payment.includes("overdue")) {
-    risks.push({ id: "late-payment", step: "payment", field: "latePaymentTerms", title: "No late payment term", detail: "Add due dates and what happens if an invoice is overdue.", severity: "Medium" });
+    insights.push({ id: "late", step: "payment", field: "latePaymentTerms", label: "Late payment recommendation", detail: "The draft does not say what happens when invoices are overdue.", recommendation: "Add a late payment term where permitted by law.", severity: "watch" });
+  }
+  if (!form.revisionLimits.trim() || revisions.includes("unlimited")) {
+    insights.push({ id: "revisions", step: "revisions", field: "revisionLimits", label: "Undefined revision limits", detail: revisions.includes("unlimited") ? "Unlimited revisions can turn a fixed-fee project open-ended." : "Revision rounds are not bounded.", recommendation: "Define included rounds and route extras through change requests.", severity: "critical" });
   }
   if (!form.ipOwnershipTerms.trim()) {
-    risks.push({ id: "ip", step: "ownership", field: "ipOwnershipTerms", title: "No IP ownership clause", detail: "Clarify who owns final work and when ownership transfers.", severity: "High" });
+    insights.push({ id: "ownership", step: "ownership", field: "ipOwnershipTerms", label: "Missing ownership transfer", detail: "The draft does not say who owns the final work or when ownership transfers.", recommendation: "Transfer final work after full payment and reserve pre-existing tools.", severity: "critical" });
   }
-  if (!form.cancellationTerms.trim()) {
-    risks.push({ id: "cancellation", step: "cancellation", field: "cancellationTerms", title: "No cancellation clause", detail: "Explain how either side may end the project and what remains payable.", severity: "High" });
+  if (!scope.includes("outside") && !form.exclusions.trim()) {
+    insights.push({ id: "scope-creep", step: "scope", field: "exclusions", label: "Scope creep warning", detail: "No explicit exclusions are listed.", recommendation: "Add what is out of scope so the client understands boundaries.", severity: "watch" });
   }
   if (!responsibilities.includes("feedback") && !responsibilities.includes("approval")) {
-    risks.push({ id: "feedback", step: "timeline", field: "clientResponsibilities", title: "No client feedback deadline", detail: "Add a feedback window so the timeline does not drift silently.", severity: "Medium" });
+    insights.push({ id: "feedback", step: "timeline", field: "clientResponsibilities", label: "Missing feedback deadline", detail: "The timeline depends on client response, but no feedback window is defined.", recommendation: "Add a client feedback window and decision-maker requirement.", severity: "watch" });
   }
-  if (!form.supportTerms.trim() || (!support.includes("not include") && !support.includes("billed separately"))) {
-    risks.push({ id: "support", step: "support", field: "supportTerms", title: "No support/maintenance boundary", detail: "Define what post-launch support includes, excludes, and how long it lasts.", severity: "Medium" });
+  if (!form.cancellationTerms.trim()) {
+    insights.push({ id: "cancel", step: "cancellation", field: "cancellationTerms", label: "Missing cancellation clause", detail: "The draft does not explain how either side exits the project.", recommendation: "Add notice, completed-work payment, and expense handling.", severity: "critical" });
+  }
+  if (!support.includes("not include") && !support.includes("billed separately")) {
+    insights.push({ id: "support", step: "support", field: "supportTerms", label: "Support boundary unclear", detail: "Post-launch support may be interpreted too broadly.", recommendation: "Separate included support from new features, content changes, and third-party issues.", severity: "watch" });
   }
 
-  return risks;
+  return insights;
 }
 
-function fieldRisk(risks: Risk[], field: keyof FormState) {
-  return risks.find((risk) => risk.field === field);
+function fieldInsight(insights: Insight[], field: keyof FormState) {
+  return insights.find((insight) => insight.field === field);
 }
 
-function AppShell({ children }: { children: React.ReactNode }) {
+function classNames(...values: Array<string | false | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
+function Icon({ name }: { name: "plus" | "file" | "template" | "help" | "settings" | "export" | "preview" | "save" }) {
+  const common = "h-4 w-4";
+  if (name === "plus") return <span className={common}>+</span>;
+  if (name === "file") return <span className={common}>□</span>;
+  if (name === "template") return <span className={common}>▣</span>;
+  if (name === "help") return <span className={common}>?</span>;
+  if (name === "settings") return <span className={common}>⌘</span>;
+  if (name === "export") return <span className={common}>↗</span>;
+  if (name === "preview") return <span className={common}>◐</span>;
+  return <span className={common}>✓</span>;
+}
+
+function Sidebar({ onNew, onSample }: { onNew: () => void; onSample: () => void }) {
   return (
-    <main className="min-h-dvh bg-[#f5f4ef] text-[#17231f]">
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,#ffffff_0%,rgba(255,255,255,0)_100%)]" />
-      <div className="relative mx-auto max-w-7xl px-4 py-5 md:px-8">{children}</div>
-    </main>
+    <aside className="flex h-full w-full flex-col border-r border-[#ded8cc] bg-[#f5f2eb] px-3 py-3">
+      <div className="flex items-center gap-2 px-2 py-2">
+        <div className="grid size-8 place-items-center rounded-lg bg-[#123c35] text-xs font-black text-white">SG</div>
+        <div>
+          <p className="text-sm font-black text-[#17231f]">ScopeGuard</p>
+          <p className="text-[11px] font-semibold text-[#7a756d]">Contract workspace</p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-1">
+        <SidebarButton icon="plus" label="New Contract" active onClick={onNew} />
+        <SidebarButton icon="file" label="Drafts" />
+        <SidebarButton icon="template" label="Templates" onClick={onSample} />
+      </div>
+
+      <div className="mt-6">
+        <p className="px-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#928c82]">Recently opened</p>
+        <div className="mt-2 space-y-1">
+          <RecentItem title="Customer Onboarding Portal" meta="SaaS build" />
+          <RecentItem title="Website Redesign" meta="Web design" muted />
+          <RecentItem title="Monthly Support Retainer" meta="Retainer" muted />
+        </div>
+      </div>
+
+      <div className="mt-auto space-y-1 border-t border-[#ded8cc] pt-3">
+        <SidebarButton icon="help" label="Help" />
+        <SidebarButton icon="settings" label="Settings" />
+        <div className="mt-3 flex items-center gap-2 rounded-xl px-2 py-2">
+          <div className="grid size-8 place-items-center rounded-full bg-[#e7dfd1] text-xs font-black text-[#123c35]">JL</div>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-black text-[#17231f]">Jordan</p>
+            <p className="truncate text-[11px] text-[#7a756d]">Freelancer</p>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 }
 
-function Header({ completion, onSample }: { completion: number; onSample: () => void }) {
+function SidebarButton({ icon, label, active, onClick }: { icon: "plus" | "file" | "template" | "help" | "settings"; label: string; active?: boolean; onClick?: () => void }) {
   return (
-    <header className="rounded-[28px] border border-[#e2ded4] bg-[#fffdfa]/85 p-4 shadow-[0_24px_80px_rgba(31,45,39,0.08)] backdrop-blur md:p-5">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="grid size-11 place-items-center rounded-2xl bg-[#133b34] text-sm font-black text-white shadow-sm">SG</div>
-          <div>
-            <p className="text-lg font-black tracking-tight">ScopeGuard</p>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7a8179]">Freelance tech contracts</p>
-          </div>
-        </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={classNames(
+        "flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+        active ? "bg-white text-[#123c35] shadow-[0_1px_0_rgba(25,36,31,0.05)]" : "text-[#5f625c] hover:bg-[#ede8de] hover:text-[#17231f]",
+      )}
+    >
+      <Icon name={icon} />
+      {label}
+    </button>
+  );
+}
 
-        <div className="max-w-2xl">
-          <h1 className="text-2xl font-black tracking-[-0.02em] text-[#102f2a] md:text-4xl">Draft better contracts faster.</h1>
-          <p className="mt-2 text-sm leading-6 text-[#66706a] md:text-base">
-            A guided contract drafting workspace for designers, developers, no-code builders, product consultants, and small agencies.
-          </p>
-        </div>
+function RecentItem({ title, meta, muted }: { title: string; meta: string; muted?: boolean }) {
+  return (
+    <button type="button" className={classNames("w-full rounded-xl px-2 py-2 text-left transition hover:bg-[#ede8de]", muted && "opacity-60")}>
+      <p className="truncate text-xs font-bold text-[#2a3530]">{title}</p>
+      <p className="mt-0.5 truncate text-[11px] text-[#817a70]">{meta}</p>
+    </button>
+  );
+}
 
-        <div className="flex flex-col gap-3 rounded-3xl bg-[#f4f1ea] p-3 lg:w-72">
-          <div className="flex items-center justify-between text-sm font-bold">
-            <span>Readiness</span>
-            <span className="text-[#133b34]">{completion}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[#ddd7cb]">
-            <div className="h-full rounded-full bg-[#133b34]" style={{ width: `${completion}%` }} />
-          </div>
-          <button type="button" onClick={onSample} className="rounded-2xl border border-[#d6d0c4] bg-white px-4 py-2.5 text-sm font-bold text-[#24342f] transition hover:border-[#b9b0a2]">
-            Load sample
-          </button>
-        </div>
+function WorkspaceBar({
+  title,
+  savedState,
+  panelMode,
+  onTitleChange,
+  onSave,
+  onExport,
+  onPreview,
+}: {
+  title: string;
+  savedState: string;
+  panelMode: "intel" | "preview";
+  onTitleChange: (value: string) => void;
+  onSave: () => void;
+  onExport: () => void;
+  onPreview: () => void;
+}) {
+  return (
+    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#ded8cc] bg-[#fbfaf6] px-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="rounded-lg border border-[#ded8cc] bg-white px-2 py-1 text-[11px] font-bold text-[#716c64]">Draft</div>
+        <input
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          className="min-w-0 max-w-[420px] bg-transparent text-sm font-black text-[#17231f] outline-none"
+          aria-label="Contract title"
+        />
+        <span className="hidden rounded-full bg-[#f0ece3] px-2 py-1 text-[11px] font-bold text-[#767168] md:inline">{savedState}</span>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <UtilityButton label="Save draft" icon="save" onClick={onSave} shortcut="⌘S" />
+        <UtilityButton label="Export" icon="export" onClick={onExport} />
+        <UtilityButton label={panelMode === "preview" ? "Intelligence" : "Preview"} icon="preview" onClick={onPreview} />
+        <button type="button" className="grid size-8 place-items-center rounded-lg text-[#68635b] transition hover:bg-[#f0ece3]" aria-label="Theme and settings">
+          <Icon name="settings" />
+        </button>
       </div>
     </header>
   );
 }
 
-function ProgressSummary({ completion, savedAt, riskCount }: { completion: number; savedAt: string; riskCount: number }) {
+function UtilityButton({ label, icon, onClick, shortcut }: { label: string; icon: "save" | "export" | "preview"; onClick: () => void; shortcut?: string }) {
   return (
-    <div className="grid gap-3 md:grid-cols-3">
-      <div className="rounded-3xl border border-[#e3ded4] bg-white p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#879088]">Completion</p>
-        <p className="mt-2 text-2xl font-black">{completion}%</p>
-      </div>
-      <div className="rounded-3xl border border-[#e3ded4] bg-white p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#879088]">Open risks</p>
-        <p className="mt-2 text-2xl font-black">{riskCount}</p>
-      </div>
-      <div className="rounded-3xl border border-[#e3ded4] bg-white p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#879088]">Draft status</p>
-        <p className="mt-2 text-sm font-bold text-[#48534e]">{savedAt || "Not saved yet"}</p>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      title={shortcut ? `${label} (${shortcut})` : label}
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#ded8cc] bg-white px-2.5 text-xs font-bold text-[#2b3631] transition hover:border-[#c4bba9] hover:bg-[#f7f4ee]"
+    >
+      <Icon name={icon} />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
   );
 }
 
-function StepTabs({
+function WorkflowTabs({
   activeStep,
-  maxUnlockedStep,
-  onStepChange,
+  maxStep,
+  onChange,
 }: {
   activeStep: number;
-  maxUnlockedStep: number;
-  onStepChange: (step: number) => void;
+  maxStep: number;
+  onChange: (step: number) => void;
 }) {
   return (
-    <nav className="rounded-[28px] border border-[#e2ded4] bg-white p-2 shadow-sm">
-      <div className="flex gap-2 overflow-x-auto">
+    <nav className="border-b border-[#ded8cc] bg-[#fbfaf6] px-4 py-2">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-[#ded8cc] bg-[#f2eee6] p-1">
         {steps.map((step, index) => {
-          const locked = index > maxUnlockedStep;
+          const locked = index > maxStep;
           return (
             <button
-              type="button"
               key={step.id}
+              type="button"
               disabled={locked}
-              onClick={() => onStepChange(index)}
-              className={`min-w-fit rounded-2xl px-4 py-3 text-sm font-bold transition ${
-                activeStep === index
-                  ? "bg-[#133b34] text-white shadow-sm"
-                  : locked
-                    ? "bg-[#f6f3ec] text-[#b6aea2]"
-                    : "text-[#59645f] hover:bg-[#f4f1ea]"
-              }`}
+              onClick={() => onChange(index)}
+              className={classNames(
+                "min-w-fit rounded-lg px-3 py-1.5 text-xs font-black transition",
+                activeStep === index && "bg-white text-[#123c35] shadow-[0_1px_0_rgba(25,36,31,0.05)]",
+                activeStep !== index && !locked && "text-[#625e57] hover:bg-[#e9e3d8]",
+                locked && "text-[#b1aa9f]",
+              )}
             >
-              <span className="mr-2 text-xs opacity-70">{String(index + 1).padStart(2, "0")}</span>
-              {step.label}
+              {String(index + 1).padStart(2, "0")} {step.short}
             </button>
           );
         })}
@@ -428,81 +500,7 @@ function StepTabs({
   );
 }
 
-function ContractTypeSelector({ value, onChange }: { value: ContractType; onChange: (type: ContractType) => void }) {
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {contractTypes.map((type) => (
-        <button
-          type="button"
-          key={type.name}
-          onClick={() => onChange(type.name)}
-          className={`rounded-3xl border p-5 text-left transition ${
-            value === type.name
-              ? "border-[#133b34] bg-[#eef5ef] shadow-[0_16px_40px_rgba(19,59,52,0.12)]"
-              : "border-[#e2ded4] bg-white hover:border-[#c9c0b1]"
-          }`}
-        >
-          <span className="text-base font-black text-[#152b26]">{type.name}</span>
-          <span className="mt-2 block text-sm leading-6 text-[#6c756f]">{type.summary}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FormField({
-  label,
-  value,
-  placeholder,
-  helper,
-  risk,
-  onChange,
-  short = false,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  helper?: string;
-  risk?: Risk;
-  onChange: (value: string) => void;
-  short?: boolean;
-}) {
-  const inputClass = `w-full rounded-2xl border bg-[#fffdfa] px-4 py-3 text-sm text-[#17231f] outline-none transition placeholder:text-[#a9a196] focus:border-[#133b34] focus:ring-4 focus:ring-[#dce8df] ${
-    risk ? "border-[#e4a28c]" : "border-[#ddd7cb]"
-  }`;
-
-  return (
-    <label className="block">
-      <span className="flex items-center justify-between gap-3">
-        <span className="text-sm font-black text-[#17231f]">{label}</span>
-        {risk ? <span className="rounded-full bg-[#fff0e9] px-2.5 py-1 text-xs font-black text-[#aa4325]">{risk.severity}</span> : null}
-      </span>
-      {short ? (
-        <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`${inputClass} mt-2`} />
-      ) : (
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`${inputClass} mt-2 min-h-32 resize-y leading-6`} />
-      )}
-      {risk ? <p className="mt-2 text-sm leading-5 text-[#9b3b20]">{risk.detail}</p> : helper ? <p className="mt-2 text-sm leading-5 text-[#747d77]">{helper}</p> : null}
-    </label>
-  );
-}
-
-function DisclosureSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <details className="group rounded-3xl border border-[#e2ded4] bg-[#faf8f2] p-4">
-      <summary className="cursor-pointer list-none text-sm font-black text-[#22332e]">
-        <span className="inline-flex w-full items-center justify-between gap-4">
-          {title}
-          <span className="rounded-full bg-white px-3 py-1 text-xs text-[#6c756f] group-open:hidden">Open</span>
-          <span className="hidden rounded-full bg-white px-3 py-1 text-xs text-[#6c756f] group-open:inline">Close</span>
-        </span>
-      </summary>
-      <div className="mt-4">{children}</div>
-    </details>
-  );
-}
-
-function StepFormCard({
+function SectionFrame({
   step,
   children,
   onDefault,
@@ -512,118 +510,237 @@ function StepFormCard({
   onDefault?: () => void;
 }) {
   return (
-    <section className="rounded-[32px] border border-[#e2ded4] bg-white p-5 shadow-[0_24px_80px_rgba(31,45,39,0.08)] md:p-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <section className="mx-auto w-full max-w-4xl">
+      <div className="mb-4 flex items-start justify-between gap-4 border-b border-[#e5ded1] pb-4">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#a24d33]">{step.eyebrow}</p>
-          <h2 className="mt-3 text-3xl font-black tracking-[-0.02em] text-[#102f2a] md:text-4xl">{step.title}</h2>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-[#65706a]">{step.prompt}</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8378]">{step.label}</p>
+          <h1 className="mt-1 text-2xl font-black tracking-[-0.015em] text-[#17231f]">{step.title}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#696f68]">{step.description}</p>
         </div>
         {onDefault ? (
-          <button type="button" onClick={onDefault} className="rounded-2xl border border-[#d6d0c4] bg-[#fffdfa] px-4 py-2.5 text-sm font-bold text-[#24342f] hover:border-[#b9b0a2]">
-            Use smart defaults
+          <button type="button" onClick={onDefault} className="rounded-lg border border-[#d8d0c2] bg-white px-3 py-2 text-xs font-bold text-[#2b3631] transition hover:border-[#beb4a3]">
+            Insert defaults
           </button>
         ) : null}
       </div>
-      <div className="mt-8 grid gap-5">{children}</div>
+      <div className="space-y-4">{children}</div>
     </section>
   );
 }
 
-function RiskReviewPanel({ risks, step }: { risks: Risk[]; step: Step }) {
-  const contextualRisks = step.id === "review" ? risks : risks.filter((risk) => risk.step === step.id);
+function Field({
+  label,
+  value,
+  placeholder,
+  onChange,
+  insight,
+  helper,
+  rows = 4,
+  compact,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  insight?: Insight;
+  helper?: string;
+  rows?: number;
+  compact?: boolean;
+}) {
+  return (
+    <label className="block rounded-xl border border-[#e1dace] bg-[#fffdfa] p-3 transition-within focus-within:border-[#123c35] focus-within:ring-2 focus-within:ring-[#dce7df]">
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-xs font-black uppercase tracking-[0.08em] text-[#4f5b54]">{label}</span>
+        <span className="group relative grid size-5 place-items-center rounded-full border border-[#d9d1c3] text-[11px] font-black text-[#81796f]">
+          ?
+          <span className="pointer-events-none absolute right-0 top-6 z-20 hidden w-56 rounded-lg border border-[#ded8cc] bg-white p-2 text-left text-xs font-medium leading-5 text-[#5f625c] shadow-lg group-hover:block">
+            {helper || "Use plain English. Specific terms are easier to review and enforce."}
+          </span>
+        </span>
+      </span>
+      {compact ? (
+        <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="mt-2 w-full bg-transparent text-sm font-medium text-[#17231f] outline-none placeholder:text-[#aaa398]" />
+      ) : (
+        <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} rows={rows} className="mt-2 w-full resize-y bg-transparent text-sm leading-6 text-[#17231f] outline-none placeholder:text-[#aaa398]" />
+      )}
+      {insight ? <p className="mt-2 border-t border-[#f0dfd6] pt-2 text-xs font-semibold leading-5 text-[#9b3f24]">{insight.recommendation}</p> : null}
+    </label>
+  );
+}
+
+function CollapsibleSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-xl border border-[#ded8cc] bg-[#f8f5ef] p-3">
+      <summary className="cursor-pointer list-none">
+        <span className="flex items-center justify-between gap-4">
+          <span>
+            <span className="block text-sm font-black text-[#24342f]">{title}</span>
+            <span className="mt-0.5 block text-xs leading-5 text-[#747168]">{description}</span>
+          </span>
+          <span className="rounded-lg border border-[#ded8cc] bg-white px-2 py-1 text-[11px] font-bold text-[#625e57] group-open:hidden">Show</span>
+          <span className="hidden rounded-lg border border-[#ded8cc] bg-white px-2 py-1 text-[11px] font-bold text-[#625e57] group-open:inline">Hide</span>
+        </span>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
+  );
+}
+
+function SegmentedControl({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-xl border border-[#ded8cc] bg-[#f2eee6] p-1">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={classNames("rounded-lg px-3 py-1.5 text-xs font-black transition", value === option.value ? "bg-white text-[#123c35]" : "text-[#625e57] hover:bg-[#e9e3d8]")}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ContractTypeSelector({ value, onChange }: { value: ContractType; onChange: (value: ContractType) => void }) {
+  return (
+    <div className="grid gap-2 md:grid-cols-2">
+      {contractTypes.map((type) => (
+        <button
+          type="button"
+          key={type.name}
+          onClick={() => onChange(type.name)}
+          className={classNames(
+            "rounded-xl border p-3 text-left transition",
+            value === type.name ? "border-[#123c35] bg-[#edf5ee]" : "border-[#ded8cc] bg-[#fffdfa] hover:border-[#c2b8a7]",
+          )}
+        >
+          <span className="block text-sm font-black text-[#17231f]">{type.name}</span>
+          <span className="mt-1 block text-xs leading-5 text-[#747168]">{type.summary}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function IntelligencePanel({
+  mode,
+  step,
+  insights,
+  draft,
+  onRegenerate,
+}: {
+  mode: "intel" | "preview";
+  step: Step;
+  insights: Insight[];
+  draft: string;
+  onRegenerate: () => void;
+}) {
+  const contextual = insights.filter((insight) => insight.step === step.id);
+  const visibleInsights = step.id === "support" ? insights : contextual;
+
+  if (mode === "preview") {
+    return (
+      <aside className="h-full border-l border-[#ded8cc] bg-[#fbfaf6]">
+        <PanelHeader title="Preview" eyebrow="Generated draft" action="Refresh" onAction={onRegenerate} />
+        <div className="h-[calc(100dvh-106px)] overflow-auto p-4">
+          <pre className="whitespace-pre-wrap rounded-xl border border-[#ded8cc] bg-white p-4 text-xs leading-5 text-[#263530]">{draft}</pre>
+        </div>
+      </aside>
+    );
+  }
 
   return (
-    <aside className="rounded-[32px] border border-[#e2ded4] bg-[#fffdfa] p-5 shadow-sm lg:sticky lg:top-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#879088]">Risk Review</p>
-          <h3 className="mt-2 text-xl font-black text-[#102f2a]">{step.id === "review" ? "Full draft scan" : step.label}</h3>
-        </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-black ${contextualRisks.length ? "bg-[#fff0e9] text-[#a33c21]" : "bg-[#eaf4ee] text-[#133b34]"}`}>
-          {contextualRisks.length} open
-        </span>
-      </div>
-
-      <div className="mt-5 space-y-3">
-        {contextualRisks.length ? (
-          contextualRisks.slice(0, step.id === "review" ? 8 : 3).map((risk) => (
-            <div key={risk.id} className="rounded-3xl border border-[#f0d0c2] bg-[#fff8f4] p-4">
-              <p className="text-sm font-black text-[#79311e]">{risk.title}</p>
-              <p className="mt-2 text-sm leading-6 text-[#78584e]">{risk.detail}</p>
+    <aside className="h-full border-l border-[#ded8cc] bg-[#fbfaf6]">
+      <PanelHeader title="Intelligence" eyebrow={step.label} />
+      <div className="h-[calc(100dvh-106px)] overflow-auto p-4">
+        <div className="space-y-3">
+          {visibleInsights.length ? (
+            visibleInsights.map((insight) => (
+              <div key={insight.id} className="rounded-xl border border-[#ead1c5] bg-[#fff8f4] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-[#71321f]">{insight.label}</p>
+                  <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#9d3e22]">{insight.severity === "critical" ? "Fix" : "Watch"}</span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[#73584d]">{insight.detail}</p>
+                <p className="mt-2 text-xs font-bold leading-5 text-[#9d3e22]">{insight.recommendation}</p>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-[#d8e5d9] bg-[#f2faf4] p-3">
+              <p className="text-sm font-black text-[#123c35]">No issues in this section</p>
+              <p className="mt-2 text-xs leading-5 text-[#5f6b64]">The active section has the core drafting details ScopeGuard expects.</p>
             </div>
-          ))
-        ) : (
-          <div className="rounded-3xl border border-[#d8e8dc] bg-[#f2faf4] p-4">
-            <p className="text-sm font-black text-[#133b34]">Looks clear for this step</p>
-            <p className="mt-2 text-sm leading-6 text-[#566963]">Keep going. You can review the whole draft at the end.</p>
-          </div>
-        )}
+          )}
+
+          <CollapsibleSection title="Suggested legal wording" description="Draft phrasing you can adapt, not legal advice.">
+            <p className="text-xs leading-5 text-[#5f625c]">
+              Work outside the approved scope requires written approval and may affect fees, milestones, and delivery dates.
+            </p>
+          </CollapsibleSection>
+        </div>
       </div>
     </aside>
   );
 }
 
-function GeneratedDraftPanel({
-  draft,
-  setDraft,
-  onRegenerate,
-  onCopy,
-  copied,
-}: {
-  draft: string;
-  setDraft: (draft: string) => void;
-  onRegenerate: () => void;
-  onCopy: () => void;
-  copied: boolean;
-}) {
+function PanelHeader({ eyebrow, title, action, onAction }: { eyebrow: string; title: string; action?: string; onAction?: () => void }) {
   return (
-    <section className="rounded-[32px] border border-[#d9d4ca] bg-[#fffdfa] p-5 md:p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#a24d33]">Generated Draft</p>
-          <h3 className="mt-2 text-2xl font-black text-[#102f2a]">Editable contract</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={onRegenerate} className="rounded-2xl border border-[#d6d0c4] bg-white px-4 py-2.5 text-sm font-bold">Regenerate</button>
-          <button type="button" onClick={onCopy} className="rounded-2xl border border-[#d6d0c4] bg-white px-4 py-2.5 text-sm font-bold">{copied ? "Copied" : "Copy"}</button>
-          <button type="button" onClick={() => window.print()} className="rounded-2xl bg-[#133b34] px-4 py-2.5 text-sm font-bold text-white">Export PDF</button>
-        </div>
+    <div className="flex h-[50px] items-center justify-between border-b border-[#ded8cc] px-4">
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8c857b]">{eyebrow}</p>
+        <h2 className="text-sm font-black text-[#17231f]">{title}</h2>
       </div>
-      <textarea className="print-contract mt-5 min-h-[560px] w-full resize-y rounded-3xl border border-[#ddd7cb] bg-white p-5 font-mono text-sm leading-6 text-[#17231f] outline-none focus:border-[#133b34] focus:ring-4 focus:ring-[#dce8df]" value={draft} onChange={(event) => setDraft(event.target.value)} />
-    </section>
+      {action && onAction ? (
+        <button type="button" onClick={onAction} className="rounded-lg border border-[#ded8cc] bg-white px-2 py-1 text-[11px] font-bold text-[#2b3631]">
+          {action}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
-function ReviewSummary({
-  form,
-  risks,
-  completion,
-  contractType,
+function BottomActionBar({
+  savedState,
+  activeStep,
+  maxStep,
+  onBack,
+  onNext,
+  onSave,
 }: {
-  form: FormState;
-  risks: Risk[];
-  completion: number;
-  contractType: ContractType;
+  savedState: string;
+  activeStep: number;
+  maxStep: number;
+  onBack: () => void;
+  onNext: () => void;
+  onSave: () => void;
 }) {
-  const missing = requiredFields.filter((field) => !form[field].trim());
-
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="rounded-3xl border border-[#e2ded4] bg-[#faf8f2] p-5">
-        <p className="text-sm font-black text-[#879088]">Contract</p>
-        <p className="mt-2 text-xl font-black">{contractType}</p>
-        <p className="mt-2 text-sm leading-6 text-[#67736c]">{form.projectTitle || "Project title missing"}</p>
-      </div>
-      <div className="rounded-3xl border border-[#e2ded4] bg-[#faf8f2] p-5">
-        <p className="text-sm font-black text-[#879088]">Required fields</p>
-        <p className="mt-2 text-xl font-black">{missing.length ? `${missing.length} missing` : "Complete"}</p>
-        <p className="mt-2 text-sm leading-6 text-[#67736c]">Completion is {completion}%.</p>
-      </div>
-      <div className="rounded-3xl border border-[#e2ded4] bg-[#faf8f2] p-5">
-        <p className="text-sm font-black text-[#879088]">Risk scan</p>
-        <p className="mt-2 text-xl font-black">{risks.length ? `${risks.length} open` : "No common gaps"}</p>
-        <p className="mt-2 text-sm leading-6 text-[#67736c]">Review with a qualified legal professional when needed.</p>
+    <div className="sticky bottom-0 z-20 border-t border-[#ded8cc] bg-[#fbfaf6]/95 px-4 py-2 backdrop-blur">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <p className="text-xs text-[#68635b]">
+          <span className="font-bold">{savedState}</span> · Draft only. Not legal advice. Review with a qualified legal professional when needed.
+        </p>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onBack} disabled={activeStep === 0} className="rounded-lg px-3 py-2 text-xs font-bold text-[#5f625c] transition hover:bg-[#f0ece3] disabled:opacity-40">
+            Back
+          </button>
+          <button type="button" onClick={onSave} className="rounded-lg border border-[#d6d0c4] bg-white px-3 py-2 text-xs font-bold text-[#2b3631] transition hover:border-[#beb4a3]">
+            Save
+          </button>
+          <button type="button" onClick={onNext} disabled={activeStep >= maxStep} className="rounded-lg bg-[#123c35] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0d312b] disabled:bg-[#aab4ae]">
+            Next section
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -633,49 +750,53 @@ export default function ScopeGuard() {
   const [contractType, setContractType] = useState<ContractType>("Web design");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [activeStep, setActiveStep] = useState(0);
+  const [panelMode, setPanelMode] = useState<"intel" | "preview">("intel");
+  const [paymentMode, setPaymentMode] = useState("fixed");
+  const [savedState, setSavedState] = useState("Saved");
   const [draft, setDraft] = useState(() => generateContract("Web design", emptyForm));
-  const [savedAt, setSavedAt] = useState("");
-  const [copied, setCopied] = useState(false);
 
-  const risks = useMemo(() => getRisks(form), [form]);
-  const completion = Math.round((requiredFields.filter((field) => form[field].trim()).length / requiredFields.length) * 100);
-  const basicsComplete = Boolean(contractType && form.freelancerName.trim() && form.clientName.trim() && form.projectTitle.trim());
-  const maxUnlockedStep = basicsComplete ? steps.length - 1 : Math.min(1, activeStep + 1);
-  const step = steps[activeStep];
+  const currentStep = steps[activeStep];
+  const insights = useMemo(() => getInsights(form), [form]);
   const generatedDraft = useMemo(() => generateContract(contractType, form), [contractType, form]);
+  const basicsComplete = Boolean(form.freelancerName.trim() && form.clientName.trim() && form.projectTitle.trim());
+  const maxStep = basicsComplete ? steps.length - 1 : Math.min(1, activeStep + 1);
 
   useEffect(() => {
     window.setTimeout(() => {
       const saved = window.localStorage.getItem(storageKey);
-
       if (!saved) return;
-
       try {
-        const parsed = JSON.parse(saved) as {
-          contractType?: ContractType;
-          form?: Partial<FormState>;
-          draft?: string;
-          savedAt?: string;
-          activeStep?: number;
-        };
-
+        const parsed = JSON.parse(saved) as Partial<{
+          contractType: ContractType;
+          form: Partial<FormState>;
+          activeStep: number;
+          paymentMode: string;
+        }>;
         if (parsed.contractType) setContractType(parsed.contractType);
         if (parsed.form) setForm({ ...emptyForm, ...parsed.form });
-        if (parsed.draft) setDraft(parsed.draft);
-        if (parsed.savedAt) setSavedAt(parsed.savedAt);
         if (typeof parsed.activeStep === "number") setActiveStep(Math.min(Math.max(parsed.activeStep, 0), steps.length - 1));
+        if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
       } catch {
         window.localStorage.removeItem(storageKey);
       }
     }, 0);
   }, []);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, activeStep, paymentMode }));
+      setSavedState("Autosaved");
+    }, 700);
+    return () => window.clearTimeout(timeout);
+  }, [contractType, form, activeStep, paymentMode]);
+
   const updateField = (field: keyof FormState, value: string) => {
+    setSavedState("Unsaved changes");
     setForm((current) => ({ ...current, [field]: value }));
-    setCopied(false);
   };
 
   const applyDefaults = (fields: Array<keyof FormState>) => {
+    setSavedState("Unsaved changes");
     setForm((current) => {
       const next = { ...current };
       fields.forEach((field) => {
@@ -686,153 +807,175 @@ export default function ScopeGuard() {
   };
 
   const saveDraft = () => {
-    const time = new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-    window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, draft, savedAt: time, activeStep }));
-    setSavedAt(time);
+    window.localStorage.setItem(storageKey, JSON.stringify({ contractType, form, activeStep, paymentMode }));
+    setSavedState("Saved");
+  };
+
+  const resetContract = () => {
+    setSavedState("Unsaved changes");
+    setContractType("Web design");
+    setForm(emptyForm);
+    setActiveStep(0);
+    setPanelMode("intel");
   };
 
   const loadSample = () => {
+    setSavedState("Unsaved changes");
     setContractType("SaaS build");
     setForm(sampleForm);
-    setDraft(generateContract("SaaS build", sampleForm));
-    setSavedAt("");
-    setActiveStep(9);
+    setActiveStep(2);
   };
 
-  const copyDraft = async () => {
-    await navigator.clipboard.writeText(draft);
-    setCopied(true);
+  const changeStep = (step: number) => {
+    const next = Math.min(Math.max(step, 0), maxStep);
+    setSavedState("Unsaved changes");
+    setActiveStep(next);
+    setPanelMode("intel");
   };
 
-  const changeStep = (nextStep: number) => {
-    const safeStep = Math.min(Math.max(nextStep, 0), maxUnlockedStep);
-    if (steps[safeStep]?.id === "review") {
-      setDraft(generatedDraft);
-    }
-    setActiveStep(safeStep);
+  const updateContractType = (value: ContractType) => {
+    setSavedState("Unsaved changes");
+    setContractType(value);
   };
 
-  const goNext = () => changeStep(activeStep + 1);
-  const goBack = () => setActiveStep((current) => Math.max(current - 1, 0));
+  const updatePaymentMode = (value: string) => {
+    setSavedState("Unsaved changes");
+    setPaymentMode(value);
+  };
+
+  const showPreview = () => {
+    setDraft(generatedDraft);
+    setPanelMode((mode) => (mode === "preview" ? "intel" : "preview"));
+  };
+
+  const exportDraft = () => {
+    setDraft(generatedDraft);
+    window.setTimeout(() => window.print(), 0);
+  };
 
   return (
-    <AppShell>
-      <div className="space-y-5">
-        <Header completion={completion} onSample={loadSample} />
-        <StepTabs activeStep={activeStep} maxUnlockedStep={maxUnlockedStep} onStepChange={changeStep} />
-        <ProgressSummary completion={completion} savedAt={savedAt} riskCount={risks.length} />
+    <main className="h-dvh overflow-hidden bg-[#f4f0e8] text-[#17231f]">
+      <div className="grid h-full grid-cols-1 md:grid-cols-[236px_minmax(0,1fr)]">
+        <Sidebar onNew={resetContract} onSample={loadSample} />
+        <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
+          <WorkspaceBar
+            title={form.projectTitle}
+            savedState={savedState}
+            panelMode={panelMode}
+            onTitleChange={(value) => updateField("projectTitle", value)}
+            onSave={saveDraft}
+            onExport={exportDraft}
+            onPreview={showPreview}
+          />
+          <WorkflowTabs activeStep={activeStep} maxStep={maxStep} onChange={changeStep} />
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-5">
-            {step.id === "type" ? (
-              <StepFormCard step={step}>
-                <ContractTypeSelector value={contractType} onChange={setContractType} />
-              </StepFormCard>
-            ) : null}
+          <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-h-0 overflow-auto bg-[#fbfaf6]">
+              <div className="px-4 py-5 md:px-8 md:py-7">
+                {currentStep.id === "type" ? (
+                  <SectionFrame step={currentStep}>
+                    <ContractTypeSelector value={contractType} onChange={updateContractType} />
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "people" ? (
-              <StepFormCard step={step}>
-                <div className="grid gap-5 md:grid-cols-2">
-                  <FormField label="Freelancer name" value={form.freelancerName} placeholder="Your legal or studio name" short onChange={(value) => updateField("freelancerName", value)} />
-                  <FormField label="Client name" value={form.clientName} placeholder="Client company or individual" short onChange={(value) => updateField("clientName", value)} />
-                </div>
-                <FormField label="Project title" value={form.projectTitle} placeholder="Customer onboarding portal, website redesign, app MVP..." short onChange={(value) => updateField("projectTitle", value)} />
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "parties" ? (
+                  <SectionFrame step={currentStep}>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Field compact label="Freelancer name" value={form.freelancerName} placeholder="Your legal or studio name" onChange={(value) => updateField("freelancerName", value)} />
+                      <Field compact label="Client name" value={form.clientName} placeholder="Client company or individual" onChange={(value) => updateField("clientName", value)} />
+                    </div>
+                    <Field compact label="Contract title" value={form.projectTitle} placeholder="Customer onboarding portal" onChange={(value) => updateField("projectTitle", value)} />
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "scope" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["scopeOfWork", "deliverables"])}>
-                <FormField label="Scope of work" value={form.scopeOfWork} placeholder="What work is included? What is clearly outside this draft?" helper="Write this like a project brief, not a legal memo." onChange={(value) => updateField("scopeOfWork", value)} />
-                <FormField label="Deliverables" value={form.deliverables} placeholder="Design files, code, prototypes, documentation, handoff..." onChange={(value) => updateField("deliverables", value)} />
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "scope" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["scopeOfWork", "deliverables", "exclusions"])}>
+                    <Field label="Scope of work" value={form.scopeOfWork} placeholder="Describe the work included in the engagement..." helper="Be concrete about features, screens, systems, and responsibilities." onChange={(value) => updateField("scopeOfWork", value)} />
+                    <Field label="Deliverables" value={form.deliverables} placeholder="What should the client receive?" onChange={(value) => updateField("deliverables", value)} />
+                    <CollapsibleSection title="Out-of-scope boundaries" description="Use this to reduce scope creep before it starts.">
+                      <Field label="Exclusions" value={form.exclusions} placeholder="List work that is not included unless approved later..." insight={fieldInsight(insights, "exclusions")} rows={3} onChange={(value) => updateField("exclusions", value)} />
+                    </CollapsibleSection>
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "payment" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["paymentTerms", "depositAmount", "latePaymentTerms"])}>
-                <FormField label="Payment terms" value={form.paymentTerms} placeholder="Total fee, invoice schedule, due dates..." risk={fieldRisk(risks, "paymentTerms")} onChange={(value) => updateField("paymentTerms", value)} />
-                <div className="grid gap-5 md:grid-cols-2">
-                  <FormField label="Deposit amount" value={form.depositAmount} placeholder="40% due before kickoff" short risk={fieldRisk(risks, "depositAmount")} onChange={(value) => updateField("depositAmount", value)} />
-                  <FormField label="Late payment terms" value={form.latePaymentTerms} placeholder="Overdue invoices may accrue..." short risk={fieldRisk(risks, "latePaymentTerms")} onChange={(value) => updateField("latePaymentTerms", value)} />
-                </div>
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "payment" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["paymentTerms", "depositAmount", "latePaymentTerms"])}>
+                    <SegmentedControl
+                      value={paymentMode}
+                      onChange={updatePaymentMode}
+                      options={[
+                        { label: "Fixed fee", value: "fixed" },
+                        { label: "Milestone", value: "milestone" },
+                        { label: "Retainer", value: "retainer" },
+                      ]}
+                    />
+                    <Field label="Payment terms" value={form.paymentTerms} placeholder="Total fee, invoice schedule, due dates..." onChange={(value) => updateField("paymentTerms", value)} />
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Field compact label="Deposit" value={form.depositAmount} placeholder="40% due before kickoff" insight={fieldInsight(insights, "depositAmount")} onChange={(value) => updateField("depositAmount", value)} />
+                      <Field compact label="Late payment" value={form.latePaymentTerms} placeholder="Overdue invoices may accrue..." insight={fieldInsight(insights, "latePaymentTerms")} onChange={(value) => updateField("latePaymentTerms", value)} />
+                    </div>
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "timeline" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["timeline", "milestones", "clientResponsibilities"])}>
-                <FormField label="Timeline" value={form.timeline} placeholder="How long will the project take, and what starts the clock?" onChange={(value) => updateField("timeline", value)} />
-                <FormField label="Milestones" value={form.milestones} placeholder="Discovery, design, build, QA, launch..." onChange={(value) => updateField("milestones", value)} />
-                <FormField label="Client responsibilities" value={form.clientResponsibilities} placeholder="Feedback deadline, assets, access, approvals, decision maker..." risk={fieldRisk(risks, "clientResponsibilities")} onChange={(value) => updateField("clientResponsibilities", value)} />
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "timeline" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["timeline", "milestones", "clientResponsibilities"])}>
+                    <Field label="Timeline" value={form.timeline} placeholder="How long will the work take, and what starts the clock?" onChange={(value) => updateField("timeline", value)} />
+                    <Field label="Milestones" value={form.milestones} placeholder="Discovery, design, build, QA, handoff..." onChange={(value) => updateField("milestones", value)} />
+                    <Field label="Client responsibilities" value={form.clientResponsibilities} placeholder="Feedback deadline, access, approvals, decision maker..." insight={fieldInsight(insights, "clientResponsibilities")} onChange={(value) => updateField("clientResponsibilities", value)} />
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "ownership" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["ipOwnershipTerms", "sourceFilesOwnership"])}>
-                <FormField label="IP ownership terms" value={form.ipOwnershipTerms} placeholder="Who owns final work after payment? What do you retain?" risk={fieldRisk(risks, "ipOwnershipTerms")} onChange={(value) => updateField("ipOwnershipTerms", value)} />
-                <DisclosureSection title="Source files and code">
-                  <FormField label="Source files/code ownership" value={form.sourceFilesOwnership} placeholder="Repos, design files, build files, third-party libraries..." onChange={(value) => updateField("sourceFilesOwnership", value)} />
-                </DisclosureSection>
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "ownership" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["ipOwnershipTerms", "sourceFilesOwnership"])}>
+                    <Field label="IP ownership" value={form.ipOwnershipTerms} placeholder="Who owns final work and when does ownership transfer?" insight={fieldInsight(insights, "ipOwnershipTerms")} onChange={(value) => updateField("ipOwnershipTerms", value)} />
+                    <Field label="Source files and code" value={form.sourceFilesOwnership} placeholder="Repos, design files, third-party libraries, build files..." onChange={(value) => updateField("sourceFilesOwnership", value)} />
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "revisions" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["revisionLimits"])}>
-                <FormField label="Revision limits" value={form.revisionLimits} placeholder="Two revision rounds are included..." risk={fieldRisk(risks, "revisionLimits")} onChange={(value) => updateField("revisionLimits", value)} />
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "revisions" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["revisionLimits", "changeRequestTerms"])}>
+                    <Field label="Revision limits" value={form.revisionLimits} placeholder="Two revision rounds are included..." insight={fieldInsight(insights, "revisionLimits")} onChange={(value) => updateField("revisionLimits", value)} />
+                    <CollapsibleSection title="Change request process" description="Define how extra work gets approved.">
+                      <Field label="Change request terms" value={form.changeRequestTerms} placeholder="Additional requests require written approval..." rows={3} onChange={(value) => updateField("changeRequestTerms", value)} />
+                    </CollapsibleSection>
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "cancellation" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["cancellationTerms"])}>
-                <FormField label="Cancellation/termination terms" value={form.cancellationTerms} placeholder="Notice period, payment for completed work, expenses..." risk={fieldRisk(risks, "cancellationTerms")} onChange={(value) => updateField("cancellationTerms", value)} />
-              </StepFormCard>
-            ) : null}
+                {currentStep.id === "cancellation" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["cancellationTerms"])}>
+                    <Field label="Cancellation and termination" value={form.cancellationTerms} placeholder="Notice period, completed work payment, non-cancellable expenses..." insight={fieldInsight(insights, "cancellationTerms")} onChange={(value) => updateField("cancellationTerms", value)} />
+                  </SectionFrame>
+                ) : null}
 
-            {step.id === "support" ? (
-              <StepFormCard step={step} onDefault={() => applyDefaults(["supportTerms", "confidentialityTerms", "governingLaw"])}>
-                <FormField label="Support/maintenance terms" value={form.supportTerms} placeholder="What support is included, for how long, and what is extra?" risk={fieldRisk(risks, "supportTerms")} onChange={(value) => updateField("supportTerms", value)} />
-                <DisclosureSection title="Advanced clauses">
-                  <div className="grid gap-5">
-                    <FormField label="Confidentiality terms" value={form.confidentialityTerms} placeholder="How both sides handle private information..." onChange={(value) => updateField("confidentialityTerms", value)} />
-                    <FormField label="Governing law placeholder" value={form.governingLaw} placeholder="[Governing law / jurisdiction placeholder]" short onChange={(value) => updateField("governingLaw", value)} />
-                  </div>
-                </DisclosureSection>
-              </StepFormCard>
-            ) : null}
-
-            {step.id === "review" ? (
-              <StepFormCard step={step}>
-                <ReviewSummary form={form} risks={risks} completion={completion} contractType={contractType} />
-                <GeneratedDraftPanel draft={draft} setDraft={setDraft} onRegenerate={() => setDraft(generatedDraft)} onCopy={copyDraft} copied={copied} />
-              </StepFormCard>
-            ) : null}
-
-            {!basicsComplete && activeStep > 1 ? (
-              <section className="rounded-[32px] border border-[#e2ded4] bg-white p-8 text-center">
-                <h2 className="text-2xl font-black text-[#102f2a]">Start with the basics</h2>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#65706a]">
-                  Add the people and project title first. Then the rest of the contract flow opens up.
-                </p>
-              </section>
-            ) : null}
-
-            <div className="flex flex-col gap-3 rounded-[28px] border border-[#e2ded4] bg-white p-3 md:flex-row md:items-center md:justify-between">
-              <p className="px-2 text-sm font-semibold text-[#66706a]">Draft only. Not legal advice. Review with a qualified legal professional when needed.</p>
-              <div className="flex gap-2">
-                <button type="button" onClick={goBack} disabled={activeStep === 0} className="rounded-2xl px-4 py-2.5 text-sm font-bold text-[#48534e] disabled:opacity-40">
-                  Back
-                </button>
-                <button type="button" onClick={saveDraft} className="rounded-2xl border border-[#d6d0c4] bg-white px-4 py-2.5 text-sm font-bold text-[#24342f]">
-                  Save
-                </button>
-                <button type="button" onClick={goNext} disabled={activeStep >= maxUnlockedStep && activeStep !== steps.length - 1} className="rounded-2xl bg-[#133b34] px-5 py-2.5 text-sm font-bold text-white disabled:bg-[#b8c1bc]">
-                  {activeStep === steps.length - 1 ? "Done" : "Next"}
-                </button>
+                {currentStep.id === "support" ? (
+                  <SectionFrame step={currentStep} onDefault={() => applyDefaults(["supportTerms", "confidentialityTerms", "governingLaw"])}>
+                    <Field label="Support and maintenance" value={form.supportTerms} placeholder="What support is included, for how long, and what is extra?" insight={fieldInsight(insights, "supportTerms")} onChange={(value) => updateField("supportTerms", value)} />
+                    <CollapsibleSection title="Legal placeholders" description="Keep these visible but out of the main drafting path.">
+                      <div className="space-y-3">
+                        <Field label="Confidentiality" value={form.confidentialityTerms} placeholder="How both sides handle private information..." rows={3} onChange={(value) => updateField("confidentialityTerms", value)} />
+                        <Field compact label="Governing law" value={form.governingLaw} placeholder="[Governing law / jurisdiction placeholder]" onChange={(value) => updateField("governingLaw", value)} />
+                      </div>
+                    </CollapsibleSection>
+                  </SectionFrame>
+                ) : null}
               </div>
-            </div>
-          </div>
 
-          <RiskReviewPanel risks={risks} step={step} />
+              <BottomActionBar
+                savedState={savedState}
+                activeStep={activeStep}
+                maxStep={maxStep}
+                onBack={() => changeStep(activeStep - 1)}
+                onNext={() => changeStep(activeStep + 1)}
+                onSave={saveDraft}
+              />
+            </div>
+
+            <IntelligencePanel mode={panelMode} step={currentStep} insights={insights} draft={draft || generatedDraft} onRegenerate={() => setDraft(generatedDraft)} />
+          </div>
         </div>
       </div>
-    </AppShell>
+
+      <textarea className="print-contract hidden" readOnly value={draft || generatedDraft} />
+    </main>
   );
 }
